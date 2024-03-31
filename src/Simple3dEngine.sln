@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.9.34607.119
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Simple3dEngine", "Simple3dEngine.csproj", "{3CFFC004-699A-47E2-8C0C-4D40F95F3901}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3CFFC004-699A-47E2-8C0C-4D40F95F3901}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3CFFC004-699A-47E2-8C0C-4D40F95F3901}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3CFFC004-699A-47E2-8C0C-4D40F95F3901}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3CFFC004-699A-47E2-8C0C-4D40F95F3901}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {DAAE929F-524B-4BFC-AB6D-6479AF9B5DF1}
+	EndGlobalSection
+EndGlobal
