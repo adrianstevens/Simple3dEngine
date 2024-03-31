@@ -2,21 +2,21 @@
 
 public struct Triangle
 {
-    public Vector3d[] p;
+    public Vector3d[] Points;
 
     public Triangle(Vector3d p1, Vector3d p2, Vector3d p3)
     {
-        p = new Vector3d[3];
-        p[0] = p1;
-        p[1] = p2;
-        p[2] = p3;
+        Points = new Vector3d[3];
+        Points[0] = p1;
+        Points[1] = p2;
+        Points[2] = p3;
     }
 
     public Triangle()
     {
-        p = new Vector3d[3];
-        p[0] = new Vector3d();
-        p[1] = new Vector3d();
-        p[2] = new Vector3d();
+        Points = new Vector3d[3];
+        Points[0] = new Vector3d();
+        Points[1] = new Vector3d();
+        Points[2] = new Vector3d();
     }
 }
