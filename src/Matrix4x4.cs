@@ -9,4 +9,3 @@ public struct Matrix4x4
         M = new float[4, 4];
     }
 }
-

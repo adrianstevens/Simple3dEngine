@@ -4,199 +4,216 @@ using Meadow.Foundation.Graphics;
 using Simple3dEngine;
 using System.Windows.Forms;
 
-namespace WinForms_Sample
+namespace WinForms_Sample;
+
+public class MeadowApp : App<Meadow.Windows>
 {
-    public class MeadowApp : App<Meadow.Windows>
+    WinFormsDisplay? display;
+    MicroGraphics graphics = default!;
+
+    Matrix4x4 projectionMatrix = new ();
+
+    Vector3d camera = new (0, 0, 0);
+    Vector3d lightDirection = new (0.5f, 0.0f, -1.0f);
+
+    readonly float Width = 320;
+    readonly float Height = 240;
+
+    //variable for rotation
+    float theta;
+
+    public override Task Initialize()
     {
-        WinFormsDisplay? display;
-        MicroGraphics graphics = default!;
+        display = new WinFormsDisplay((int)Width, (int)Height, displayScale: 3.0f);
 
-        Matrix4x4 matProj = new Matrix4x4();
-
-        Vector3d camera = new Vector3d(0, 0, 0);
-        Vector3d lightDirection = new Vector3d(0.0f, 0.0f, -1.0f);
-
-        float Width = 320;
-        float Height = 240;
-
-        float fTheta;
-
-        public override Task Initialize()
+        graphics = new MicroGraphics(display)
         {
-            display = new WinFormsDisplay((int)Width, (int)Height, displayScale: 1.5f);
+            CurrentFont = new Font12x20(),
+            Stroke = 1
+        };
 
-            graphics = new MicroGraphics(display)
+        // Projection Matrix
+        float near = 0.1f;
+        float far = 1000.0f;
+        float aspectRatio = Height / Width;
+        float fov = 1.0f / MathF.Tan(90.0f * 0.5f / 180.0f * MathF.PI);
+
+        projectionMatrix.M[0, 0] = aspectRatio * fov;
+        projectionMatrix.M[1, 1] = fov;
+        projectionMatrix.M[2, 2] = far / (far - near);
+        projectionMatrix.M[3, 2] = (-far * near) / (far - near);
+        projectionMatrix.M[2, 3] = 1.0f;
+        projectionMatrix.M[3, 3] = 0.0f;
+
+        return Task.CompletedTask;
+    }
+
+    public override Task Run()
+    {
+        _ = Task.Run(() =>
+        {
+            var objectMesh = Shapes.GenerateIcosahedron();
+
+            var color = Color.Cyan;
+            var colorFill = Color.DarkCyan;
+
+            // Set up rotation matrices
+            var matRotZ = new Matrix4x4();
+            var matRotX = new Matrix4x4();
+
+            // Draw Triangles
+            var triProjected = new Triangle();
+            var triTranslated = new Triangle();
+            var triRotatedZ = new Triangle();
+            var triRotatedZX = new Triangle();
+
+            while (true)
             {
-                CurrentFont = new Font12x20(),
-                Stroke = 1
-            };
+                graphics.Clear();
 
-            // Projection Matrix
-            float fNear = 0.1f;
-            float fFar = 1000.0f;
-            float fFov = 90.0f;
-            float fAspectRatio = Height / Width;
-            float fFovRad = 1.0f / (float)Math.Tan(fFov * 0.5f / 180.0f * 3.14159f);
+                theta += 0.05f; // Adjust the rotation speed as needed
 
-            matProj.M[0, 0] = fAspectRatio * fFovRad;
-            matProj.M[1, 1] = fFovRad;
-            matProj.M[2, 2] = fFar / (fFar - fNear);
-            matProj.M[3, 2] = (-fFar * fNear) / (fFar - fNear);
-            matProj.M[2, 3] = 1.0f;
-            matProj.M[3, 3] = 0.0f;
+                // Rotation Z
+                matRotZ.M[0, 0] = MathF.Cos(theta);
+                matRotZ.M[0, 1] = MathF.Sin(theta);
+                matRotZ.M[1, 0] = -MathF.Sin(theta);
+                matRotZ.M[1, 1] = MathF.Cos(theta);
+                matRotZ.M[2, 2] = 1;
+                matRotZ.M[3, 3] = 1;
 
-            var meshCube = Shapes.GenerateCube();
+                // Rotation X
+                matRotX.M[0, 0] = 1;
+                matRotX.M[1, 1] = MathF.Cos(theta * 0.25f);
+                matRotX.M[1, 2] = MathF.Sin(theta * 0.25f);
+                matRotX.M[2, 1] = -MathF.Sin(theta * 0.25f);
+                matRotX.M[2, 2] = MathF.Cos(theta * 0.25f);
+                matRotX.M[3, 3] = 1;
 
-            _ = Task.Run(() =>
-            {
-                while (true)
+                foreach (var tri in objectMesh.Triangles)
                 {
-                    graphics.Clear();
+                    // Rotate in Z-Axis
+                    MatrixOperations.MultiplyMatrixVector(ref tri.Points[0], out triRotatedZ.Points[0], ref matRotZ);
+                    MatrixOperations.MultiplyMatrixVector(ref tri.Points[1], out triRotatedZ.Points[1], ref matRotZ);
+                    MatrixOperations.MultiplyMatrixVector(ref tri.Points[2], out triRotatedZ.Points[2], ref matRotZ);
 
-                    // Set up rotation matrices
-                    var matRotZ = new Matrix4x4();
-                    var matRotX = new Matrix4x4();
+                    // Rotate in X-Axis
+                    MatrixOperations.MultiplyMatrixVector(ref triRotatedZ.Points[0], out triRotatedZX.Points[0], ref matRotX);
+                    MatrixOperations.MultiplyMatrixVector(ref triRotatedZ.Points[1], out triRotatedZX.Points[1], ref matRotX);
+                    MatrixOperations.MultiplyMatrixVector(ref triRotatedZ.Points[2], out triRotatedZX.Points[2], ref matRotX);
 
-                    fTheta += 0.05f; // Adjust the rotation speed as needed
+                    // Offset into the screen
+                    triTranslated = triRotatedZX;
+                    triTranslated.Points[0].Z = triRotatedZX.Points[0].Z + 5.0f; // Increase the offset to ensure visibility
+                    triTranslated.Points[1].Z = triRotatedZX.Points[1].Z + 5.0f; // Increase the offset to ensure visibility
+                    triTranslated.Points[2].Z = triRotatedZX.Points[2].Z + 5.0f; // Increase the offset to ensure visibility
 
-                    // Rotation Z
-                    matRotZ.M[0, 0] = (float)Math.Cos(fTheta);
-                    matRotZ.M[0, 1] = (float)Math.Sin(fTheta);
-                    matRotZ.M[1, 0] = -(float)Math.Sin(fTheta);
-                    matRotZ.M[1, 1] = (float)Math.Cos(fTheta);
-                    matRotZ.M[2, 2] = 1;
-                    matRotZ.M[3, 3] = 1;
+                    // Project triangles from 3D --> 2D
+                    MatrixOperations.MultiplyMatrixVector(ref triTranslated.Points[0], out triProjected.Points[0], ref projectionMatrix);
+                    MatrixOperations.MultiplyMatrixVector(ref triTranslated.Points[1], out triProjected.Points[1], ref projectionMatrix);
+                    MatrixOperations.MultiplyMatrixVector(ref triTranslated.Points[2], out triProjected.Points[2], ref projectionMatrix);
 
-                    // Rotation X
-                    matRotX.M[0, 0] = 1;
-                    matRotX.M[1, 1] = (float)Math.Cos(fTheta * 0.5f);
-                    matRotX.M[1, 2] = (float)Math.Sin(fTheta * 0.5f);
-                    matRotX.M[2, 1] = -(float)Math.Sin(fTheta * 0.5f);
-                    matRotX.M[2, 2] = (float)Math.Cos(fTheta * 0.5f);
-                    matRotX.M[3, 3] = 1;
-
-                    // Draw Triangles
-                    var triProjected = new Triangle();
-                    var triTranslated = new Triangle();
-                    var triRotatedZ = new Triangle();
-                    var triRotatedZX = new Triangle();
-
-                    foreach (var tri in meshCube.Triangles)
+                    // Check if triangle is facing towards the camera
+                    if (IsTriangleFacingCamera(ref triTranslated, ref camera))
                     {
-                        // Rotate in Z-Axis
-                        MatrixOperations.MultiplyMatrixVector(ref tri.Points[0], out triRotatedZ.Points[0], matRotZ);
-                        MatrixOperations.MultiplyMatrixVector(ref tri.Points[1], out triRotatedZ.Points[1], matRotZ);
-                        MatrixOperations.MultiplyMatrixVector(ref tri.Points[2], out triRotatedZ.Points[2], matRotZ);
+                        // Scale into view
+                        triProjected.Points[0].X += 1.0f; 
+                        triProjected.Points[0].Y += 1.0f;
+                        triProjected.Points[1].X += 1.0f; 
+                        triProjected.Points[1].Y += 1.0f;
+                        triProjected.Points[2].X += 1.0f; 
+                        triProjected.Points[2].Y += 1.0f;
+                        triProjected.Points[0].X *= 0.5f * Width;
+                        triProjected.Points[0].Y *= 0.5f * Height;
+                        triProjected.Points[1].X *= 0.5f * Width;
+                        triProjected.Points[1].Y *= 0.5f * Height;
+                        triProjected.Points[2].X *= 0.5f * Width;
+                        triProjected.Points[2].Y *= 0.5f * Height;
 
-                        // Rotate in X-Axis
-                        MatrixOperations.MultiplyMatrixVector(ref triRotatedZ.Points[0], out triRotatedZX.Points[0], matRotX);
-                        MatrixOperations.MultiplyMatrixVector(ref triRotatedZ.Points[1], out triRotatedZX.Points[1], matRotX);
-                        MatrixOperations.MultiplyMatrixVector(ref triRotatedZ.Points[2], out triRotatedZX.Points[2], matRotX);
+                        // Calculate light shading
+                        float lightIntensity = CalculateLightIntensity(GetNormalForTriangle(ref triTranslated), lightDirection);
+                        var colorShaded = colorFill.WithBrightness(lightIntensity);
 
-                        // Offset into the screen
-                        triTranslated = triRotatedZX;
-                        triTranslated.Points[0].Z = triRotatedZX.Points[0].Z + 5.0f; // Increase the offset to ensure visibility
-                        triTranslated.Points[1].Z = triRotatedZX.Points[1].Z + 5.0f; // Increase the offset to ensure visibility
-                        triTranslated.Points[2].Z = triRotatedZX.Points[2].Z + 5.0f; // Increase the offset to ensure visibility
+                        graphics.DrawTriangle(
+                            (int)triProjected.Points[0].X, (int)triProjected.Points[0].Y,
+                            (int)triProjected.Points[1].X, (int)triProjected.Points[1].Y,
+                            (int)triProjected.Points[2].X, (int)triProjected.Points[2].Y,
+                            colorShaded, true);
 
-                        // Project triangles from 3D --> 2D
-                        MatrixOperations.MultiplyMatrixVector(ref triTranslated.Points[0], out triProjected.Points[0], matProj);
-                        MatrixOperations.MultiplyMatrixVector(ref triTranslated.Points[1], out triProjected.Points[1], matProj);
-                        MatrixOperations.MultiplyMatrixVector(ref triTranslated.Points[2], out triProjected.Points[2], matProj);
-
-                        // Check if triangle is facing towards the camera
-                        if (IsTriangleFacingCamera(triTranslated, camera))
-                        {
-                          //  float lightIntensity = CalculateLightIntensity(tri, lightDirection);
-
-
-                            // Scale into view
-                            triProjected.Points[0].X += 1.0f; triProjected.Points[0].Y += 1.0f;
-                            triProjected.Points[1].X += 1.0f; triProjected.Points[1].Y += 1.0f;
-                            triProjected.Points[2].X += 1.0f; triProjected.Points[2].Y += 1.0f;
-                            triProjected.Points[0].X *= 0.5f * Width;
-                            triProjected.Points[0].Y *= 0.5f * Height;
-                            triProjected.Points[1].X *= 0.5f * Width;
-                            triProjected.Points[1].Y *= 0.5f * Height;
-                            triProjected.Points[2].X *= 0.5f * Width;
-                            triProjected.Points[2].Y *= 0.5f * Height;
-
-                            graphics.DrawTriangle(
-                                (int)triProjected.Points[0].X, (int)triProjected.Points[0].Y,
-                                (int)triProjected.Points[1].X, (int)triProjected.Points[1].Y,
-                                (int)triProjected.Points[2].X, (int)triProjected.Points[2].Y,
-                                Color.Red);
-                        }
+                        graphics.DrawTriangle(
+                            (int)triProjected.Points[0].X, (int)triProjected.Points[0].Y,
+                            (int)triProjected.Points[1].X, (int)triProjected.Points[1].Y,
+                            (int)triProjected.Points[2].X, (int)triProjected.Points[2].Y,
+                            color, false);
                     }
-
-                    graphics.Show();
                 }
-            });
-
-            return Task.CompletedTask;
-        }
-
-        public override Task Run()
-        {
-            Application.Run(display!);
-
-            return Task.CompletedTask;
-        }
-
-        public static async Task Main(string[] args)
-        {
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-            ApplicationConfiguration.Initialize();
-
-            await MeadowOS.Start(args);
-        }
-
-        public static bool IsTriangleFacingCamera(Triangle triangle, Vector3d cameraPosition)
-        {
-            // Calculate triangle normal
-            Vector3d line1 = triangle.Points[1] - triangle.Points[0];
-            Vector3d line2 = triangle.Points[2] - triangle.Points[0];
-            Vector3d normal = VectorOperations.CrossProduct(line1, line2);
-
-            // Calculate vector from triangle to camera
-            Vector3d cameraToTriangle = triangle.Points[0] - cameraPosition;
-
-            // Check the dot product between the normal and the vector to the camera
-            float dotProduct = VectorOperations.DotProduct(normal, cameraToTriangle);
-
-            // If the dot product is positive, the triangle is facing towards the camera
-            return dotProduct > 0;
-        }
-
-        float CalculateLightIntensity(Vector3d normal, Vector3d lightDirection)
-        {
-            // Ensure both vectors are normalized
-            normal = NormalizeVector(normal);
-            lightDirection = NormalizeVector(lightDirection);
-
-            // Calculate dot product
-            float dotProduct = VectorOperations.DotProduct(normal, lightDirection);
-
-            // Clamp dot product to ensure it's within [0, 1] range
-            dotProduct = Math.Max(0.0f, Math.Min(1.0f, dotProduct));
-
-            return dotProduct;
-        }
-
-        Vector3d NormalizeVector(Vector3d vector)
-        {
-            float length = (float)Math.Sqrt(vector.X * vector.X + vector.Y * vector.Y + vector.Z * vector.Z);
-
-            // Avoid division by zero
-            if (length != 0)
-            {
-                vector.X /= length;
-                vector.Y /= length;
-                vector.Z /= length;
+                graphics.Show();
             }
+        });
 
-            return vector;
+        Application.Run(display!);
+
+        return Task.CompletedTask;
+    }
+
+    public static async Task Main(string[] args)
+    {
+        Application.EnableVisualStyles();
+        Application.SetCompatibleTextRenderingDefault(false);
+        ApplicationConfiguration.Initialize();
+
+        await MeadowOS.Start(args);
+    }
+
+    public static Vector3d GetNormalForTriangle(ref Triangle triangle)
+    {
+        // Calculate triangle normal
+        Vector3d line1 = triangle.Points[1] - triangle.Points[0];
+        Vector3d line2 = triangle.Points[2] - triangle.Points[0];
+        return VectorOperations.CrossProduct(line1, line2);
+    }
+
+    public static bool IsTriangleFacingCamera(ref Triangle triangle, ref Vector3d cameraPosition)
+    {
+        // Calculate triangle normal
+        var normal = GetNormalForTriangle(ref triangle);
+
+        // Calculate vector from triangle to camera
+        Vector3d cameraToTriangle = triangle.Points[0] - cameraPosition;
+
+        // Check the dot product between the normal and the vector to the camera
+        float dotProduct = VectorOperations.DotProduct(normal, cameraToTriangle);
+
+        // If the dot product is positive, the triangle is facing towards the camera
+        return dotProduct > 0;
+    }
+
+    float CalculateLightIntensity(Vector3d normal, Vector3d lightDirection)
+    {
+        // Ensure both vectors are normalized
+        normal = NormalizeVector(ref normal);
+        lightDirection = NormalizeVector(ref lightDirection);
+
+        // Calculate dot product
+        float dotProduct = VectorOperations.DotProduct(normal, lightDirection);
+
+        // Clamp dot product to ensure it's within [0, 1] range
+        dotProduct = MathF.Max(0.0f, MathF.Min(1.0f, dotProduct));
+
+        return dotProduct;
+    }
+
+    Vector3d NormalizeVector(ref Vector3d vector)
+    {
+        float length = MathF.Sqrt(vector.X * vector.X + vector.Y * vector.Y + vector.Z * vector.Z);
+
+        // Avoid division by zero
+        if (length != 0)
+        {
+            vector.X /= length;
+            vector.Y /= length;
+            vector.Z /= length;
         }
+
+        return vector;
     }
 }
