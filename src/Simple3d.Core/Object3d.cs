@@ -10,10 +10,16 @@ public struct Object3d
     public float YRotation { get; set; }
     public float ZRotation { get; set; }
 
+    public float XTranslation { get; set; }
+    public float YTranslation { get; set; }
+    public float ZTranslation { get; set; }
+
     public bool ShowWireFrame { get; set; }
 
     public bool FillTriangles { get; set; }
 
+    public bool ShowHiddenTriangles { get; set; }
+    
     //public Matrix4x4? XRotation { get; set; }
     //public Matrix4x4? YRotation { get; set; }
     //public Matrix4x4? ZRotation { get; set; }
