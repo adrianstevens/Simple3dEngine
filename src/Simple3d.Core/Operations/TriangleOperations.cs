@@ -1,16 +1,83 @@
 ﻿using System;
+using System.Transactions;
 
 namespace Simple3dEngine;
 
 public static class TriangleOperations
 {
+    public static Vector3d GetNormal(ref Triangle triangle)
+    {
+        // Calculate triangle normal
+        Vector3d line1 = triangle.Points[1] - triangle.Points[0];
+        Vector3d line2 = triangle.Points[2] - triangle.Points[0];
+        return VectorOperations.CrossProduct(line1, line2);
+    }
+
+    public static bool IsFacingCamera(ref Triangle triangle, ref Vector3d cameraPosition)
+    {
+        // Calculate triangle normal
+        var normal = TriangleOperations.GetNormal(ref triangle);
+
+        // Calculate vector from triangle to camera
+        Vector3d cameraToTriangle = triangle.Points[0] - cameraPosition;
+
+        // Check the dot product between the normal and the vector to the camera
+        float dotProduct = VectorOperations.DotProduct(ref normal, ref cameraToTriangle);
+
+        // If the dot product is positive, the triangle is facing towards the camera
+        return dotProduct > 0;
+    }
+
+    public static void ScaleX(ref Triangle triangle, float scale)
+    {
+        triangle.Points[0].X *= scale;
+        triangle.Points[1].X *= scale;
+        triangle.Points[2].X *= scale;
+    }
+
+    public static void ScaleY(ref Triangle triangle, float scale)
+    {
+        triangle.Points[0].Y *= scale;
+        triangle.Points[1].Y *= scale;
+        triangle.Points[2].Y *= scale;
+    }
+
+    public static void ScaleZ(ref Triangle triangle, float scale)
+    {
+        triangle.Points[0].Z *= scale;
+        triangle.Points[1].Z *= scale;
+        triangle.Points[2].Z *= scale;
+    }
+
+    public static void TranslateX(ref Triangle triangle, float translation)
+    {
+        triangle.Points[0].X += translation;
+        triangle.Points[1].X += translation;
+        triangle.Points[2].X += translation;
+    }
+
+    public static void TranslateY(ref Triangle triangle, float translation)
+    {
+        triangle.Points[0].Y += translation;
+        triangle.Points[1].Y += translation;
+        triangle.Points[2].Y += translation;
+    }
+
+    public static void TranslateZ(ref Triangle triangle, float translation)
+    {
+        triangle.Points[0].Z += translation;
+        triangle.Points[1].Z += translation;
+        triangle.Points[2].Z += translation;
+    }
+
+    /*
     public static int ClipAgainstPlane(Vector3d plane_p, Vector3d plane_n, Triangle in_tri, out Triangle out_tri1, out Triangle out_tri2)
     {
         // Make sure plane normal is indeed normal
-        plane_n = VectorOperations.Normalize(plane_n);
+        plane_n = VectorOperations.Normalize(ref plane_n);
 
         // Return signed shortest distance from point to plane, plane normal must be normalized
-        Func<Vector3d, float> dist = (p) => VectorOperations.DotProduct(plane_n, p - plane_p);
+        Func<Vector3d, float> dist = (p) => VectorOperations.DotProduct(ref plane_n, v2: ref (p - plane_p));
 
         // Create two temporary storage arrays to classify points either side of plane
         // If distance sign is positive, point lies on "inside" of plane
@@ -105,4 +172,6 @@ public static class TriangleOperations
         out_tri2 = new Triangle();
         return 0;
     }
+
+    */
 }
