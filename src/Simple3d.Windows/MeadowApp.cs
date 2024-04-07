@@ -50,8 +50,8 @@ public class MeadowApp : App<Meadow.Windows>
             var colorFill = Color.DarkCyan;
 
             // Set up rotation matrices
-            var matRotZ = new Matrix4x4();
-            var matRotX = new Matrix4x4();
+            Matrix4x4 matRotZ;
+            Matrix4x4 matRotX;
 
             // Draw Triangles
             var triProjected = new Triangle();
@@ -64,10 +64,38 @@ public class MeadowApp : App<Meadow.Windows>
 
             float translationZ = 5.0f;
 
+            bool lightZUp = true;
+
 
             while (true)
             {
                 graphics.Clear();
+
+                color = color.WithHue(color.Hue + 0.00001);
+                colorFill = color.WithHue(colorFill.Hue + 0.00001);
+
+                if(lightZUp)
+                {
+                    if(lightDirection.Z >= 1.0f)
+                    {
+                        lightZUp = false;
+                    }
+                    else
+                    {
+                        lightDirection.Z += 0.01f;
+                    }
+                }
+                else
+                {
+                    if(lightDirection.Z <= 0.0f)
+                    {
+                        lightZUp = true;
+                    }
+                    else
+                    {
+                        lightDirection.Z -= 0.01f;
+                    }
+                }
 
                 thetaX += 0.01f;
                 thetaZ += 0.05f;
@@ -98,14 +126,11 @@ public class MeadowApp : App<Meadow.Windows>
                     if (TriangleOperations.IsFacingCamera(ref triTranslated, ref camera))
                     {
                         // Project triangles from 3D --> 2D
-                        MatrixOperations.MultiplyMatrixVector(ref triTranslated.Points[0], ref triProjected.Points[0], ref projectionMatrix);
-                        MatrixOperations.MultiplyMatrixVector(ref triTranslated.Points[1], ref triProjected.Points[1], ref projectionMatrix);
-                        MatrixOperations.MultiplyMatrixVector(ref triTranslated.Points[2], ref triProjected.Points[2], ref projectionMatrix);
+                        MatrixOperations.MatrixMultiplyTriangle(ref triTranslated, ref triProjected, ref projectionMatrix);
 
-                        // Scale into view
+                        // Scale into viewspace
                         TriangleOperations.TranslateX(ref triProjected, 1.0f);
                         TriangleOperations.TranslateY(ref triProjected, 1.0f);
-
                         TriangleOperations.ScaleX(ref triProjected, Width * 0.5f);
                         TriangleOperations.ScaleY(ref triProjected, Height * 0.5f);
 
