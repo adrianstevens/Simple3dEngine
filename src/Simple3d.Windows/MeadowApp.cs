@@ -11,17 +11,17 @@ public class MeadowApp : App<Meadow.Windows>
     WinFormsDisplay? display;
     MicroGraphics graphics = default!;
 
-    Matrix4x4 projectionMatrix = new ();
+    Matrix4x4 projectionMatrix = new();
 
-    Vector3d camera = new (0, 0, 0);
-    Vector3d lightDirection = new (0.5f, 0.0f, -1.0f);
+    Vector3d camera = new(0, 0, 0);
+    Vector3d lightDirection = new(0.5f, 0.0f, -1.0f);
 
-    readonly float Width = 320;
-    readonly float Height = 240;
+    readonly float Width = 1280;
+    readonly float Height = 960;
 
     public override Task Initialize()
     {
-        display = new WinFormsDisplay((int)Width, (int)Height, displayScale: 3.0f);
+        display = new WinFormsDisplay((int)Width, (int)Height, displayScale: 1.0f);
 
         graphics = new MicroGraphics(display)
         {
@@ -44,7 +44,7 @@ public class MeadowApp : App<Meadow.Windows>
     {
         _ = Task.Run(() =>
         {
-            var objectMesh = Shapes.GenerateIcosahedron();
+            var objectMesh = Shapes.GenerateDodecahedron();
 
             var color = Color.Cyan;
             var colorFill = Color.DarkCyan;
@@ -74,9 +74,9 @@ public class MeadowApp : App<Meadow.Windows>
                 color = color.WithHue(color.Hue + 0.00001);
                 colorFill = color.WithHue(colorFill.Hue + 0.00001);
 
-                if(lightZUp)
+                if (lightZUp)
                 {
-                    if(lightDirection.Z >= 1.0f)
+                    if (lightDirection.Z >= 1.0f)
                     {
                         lightZUp = false;
                     }
@@ -87,7 +87,7 @@ public class MeadowApp : App<Meadow.Windows>
                 }
                 else
                 {
-                    if(lightDirection.Z <= 0.0f)
+                    if (lightDirection.Z <= 0.0f)
                     {
                         lightZUp = true;
                     }
@@ -108,7 +108,7 @@ public class MeadowApp : App<Meadow.Windows>
 
                 Triangle tri;
 
-                for(int i = 0; i < objectMesh.Triangles.Count; i++)
+                for (int i = 0; i < objectMesh.Triangles.Count; i++)
                 {
                     tri = objectMesh.Triangles[i];
 
@@ -138,6 +138,7 @@ public class MeadowApp : App<Meadow.Windows>
                         float lightIntensity = CalculateLightIntensity(TriangleOperations.GetNormal(ref triTranslated), lightDirection);
                         var colorShaded = colorFill.WithBrightness(lightIntensity);
 
+
                         graphics.DrawTriangle(
                             (int)triProjected.Points[0].X, (int)triProjected.Points[0].Y,
                             (int)triProjected.Points[1].X, (int)triProjected.Points[1].Y,
@@ -149,9 +150,10 @@ public class MeadowApp : App<Meadow.Windows>
                             (int)triProjected.Points[1].X, (int)triProjected.Points[1].Y,
                             (int)triProjected.Points[2].X, (int)triProjected.Points[2].Y,
                             color, false);
+
                     }
                 }
-                graphics.Show();
+                graphics.ShowUnsafe();
             }
         });
 

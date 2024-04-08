@@ -1,153 +1,144 @@
 ﻿using Meadow;
 using Meadow.Devices;
-using Meadow.Foundation;
-using Meadow.Foundation.Audio;
 using Meadow.Foundation.Graphics;
-using Meadow.Hardware;
-using Meadow.Peripherals.Displays;
-using Meadow.Units;
 using Simple3dEngine;
-using System;
 using System.Threading.Tasks;
 
-namespace ProjLab3dTest
+namespace ProjLab3dTest;
+
+// Change F7FeatherV2 to F7FeatherV1 if using Feather V1 Meadow boards
+// Change to F7CoreComputeV2 for Project Lab V3.x
+public class MeadowApp : App<F7CoreComputeV2>
 {
-    // Change F7FeatherV2 to F7FeatherV1 if using Feather V1 Meadow boards
-    // Change to F7CoreComputeV2 for Project Lab V3.x
-    public class MeadowApp : App<F7CoreComputeV2>
+    private IProjectLabHardware projLab;
+
+    MicroGraphics graphics = default!;
+
+    Matrix4x4 projectionMatrix = new();
+
+    Vector3d camera = new(0, 0, 0);
+    Vector3d lightDirection = new(0.5f, 0.1f, 0.50f);
+
+    readonly float Width = 320;
+    readonly float Height = 240;
+
+    public override Task Initialize()
     {
-        private IProjectLabHardware projLab;
+        Resolver.Log.LogLevel = Meadow.Logging.LogLevel.Trace;
 
-        MicroGraphics graphics = default!;
+        Resolver.Log.Info("Initialize hardware...");
 
-        Matrix4x4 projectionMatrix = new();
+        //==== instantiate the project lab hardware
+        projLab = ProjectLab.Create();
 
-        Vector3d camera = new(0, 0, 0);
-        Vector3d lightDirection = new(0.5f, 0.1f, 0.50f);
+        Resolver.Log.Info($"Running on ProjectLab Hardware {projLab.RevisionString}");
 
-        readonly float Width = 320;
-        readonly float Height = 240;
+        projLab.RgbLed?.SetColor(Color.Blue);
 
-        public override Task Initialize()
+        graphics = new MicroGraphics(projLab.Display)
         {
-            Resolver.Log.LogLevel = Meadow.Logging.LogLevel.Trace;
+            CurrentFont = new Font12x20(),
+            Stroke = 1
+        };
 
-            Resolver.Log.Info("Initialize hardware...");
+        // Projection Matrix
+        float near = 0.1f;
+        float far = 1000.0f;
+        float aspectRatio = Height / Width;
+        float fov = 90f;
 
-            //==== instantiate the project lab hardware
-            projLab = ProjectLab.Create();
+        projectionMatrix = MatrixOperations.CreateProjectionMatrix(fov, aspectRatio, near, far);
 
-            Resolver.Log.Info($"Running on ProjectLab Hardware {projLab.RevisionString}");
+        Resolver.Log.Info("Initialization complete");
 
-            projLab.RgbLed?.SetColor(Color.Blue);
+        return base.Initialize();
+    }
 
-            graphics = new MicroGraphics(projLab.Display)
-            {
-                CurrentFont = new Font12x20(),
-                Stroke = 1
-            };
+    public override Task Run()
+    {
+        Resolver.Log.Info("Run...");
 
-            // Projection Matrix
-            float near = 0.1f;
-            float far = 1000.0f;
-            float aspectRatio = Height / Width;
-            float fov = 90f;
+        var objectMesh = Shapes.GenerateIcosahedron();
 
-            projectionMatrix = MatrixOperations.CreateProjectionMatrix(fov, aspectRatio, near, far);
+        var color = Color.Cyan;
+        var colorFill = Color.DarkCyan;
 
-            Resolver.Log.Info("Initialization complete");
+        // Set up rotation matrices
+        Matrix4x4 matRotZ;
+        Matrix4x4 matRotX;
 
-            return base.Initialize();
-        }
+        // Draw Triangles
+        var triProjected = new Triangle();
+        var triTranslated = new Triangle();
+        var triRotatedZ = new Triangle();
+        var triRotatedZX = new Triangle();
 
-        public override Task Run()
+        float thetaX = 0;
+        float thetaZ = 0;
+
+        float translationZ = 4.0f;
+
+        while (true)
         {
-            Resolver.Log.Info("Run...");
+            graphics.Clear();
 
-            var objectMesh = Shapes.GenerateIcosahedron();
+            thetaX += 0.01f;
+            thetaZ += 0.05f;
 
-            var color = Color.Cyan;
-            var colorFill = Color.DarkCyan;
+            // Rotation X
+            matRotX = MatrixOperations.CreateXRotationMatrix(thetaX);
 
-            // Set up rotation matrices
-            Matrix4x4 matRotZ;
-            Matrix4x4 matRotX;
+            // Rotation Z
+            matRotZ = MatrixOperations.CreateZRotationMatrix(thetaZ);
 
-            // Draw Triangles
-            var triProjected = new Triangle();
-            var triTranslated = new Triangle();
-            var triRotatedZ = new Triangle();
-            var triRotatedZX = new Triangle();
+            Triangle tri;
 
-            float thetaX = 0;
-            float thetaZ = 0;
-
-            float translationZ = 5.0f;
-
-            while (true)
+            for (int i = 0; i < objectMesh.Triangles.Count; i++)
             {
-                graphics.Clear();
+                tri = objectMesh.Triangles[i];
 
-                thetaX += 0.01f;
-                thetaZ += 0.05f;
+                // Rotate in Z-Axis
+                MatrixOperations.MatrixMultiplyTriangle(ref tri, ref triRotatedZ, ref matRotZ);
 
-                // Rotation X
-                matRotX = MatrixOperations.CreateXRotationMatrix(thetaX);
+                // Rotate in X-Axis
+                MatrixOperations.MatrixMultiplyTriangle(ref triRotatedZ, ref triRotatedZX, ref matRotX);
 
-                // Rotation Z
-                matRotZ = MatrixOperations.CreateZRotationMatrix(thetaZ);
+                // Offset into the screen
+                triTranslated = triRotatedZX;
+                TriangleOperations.TranslateZ(ref triTranslated, translationZ);
 
-                Triangle tri;
-
-                for(int i = 0; i < objectMesh.Triangles.Count; i++)
+                // Check if triangle is facing towards the camera
+                if (TriangleOperations.IsFacingCamera(ref triTranslated, ref camera))
                 {
-                    tri = objectMesh.Triangles[i];
+                    // Project triangles from 3D --> 2D
+                    MatrixOperations.MatrixMultiplyTriangle(ref triTranslated, ref triProjected, ref projectionMatrix);
 
-                    // Rotate in Z-Axis
-                    MatrixOperations.MatrixMultiplyTriangle(ref tri, ref triRotatedZ, ref matRotZ);
+                    // Scale into viewspace
+                    TriangleOperations.TranslateX(ref triProjected, 1.0f);
+                    TriangleOperations.TranslateY(ref triProjected, 1.0f);
+                    TriangleOperations.ScaleX(ref triProjected, Width * 0.5f);
+                    TriangleOperations.ScaleY(ref triProjected, Height * 0.5f);
 
-                    // Rotate in X-Axis
-                    MatrixOperations.MatrixMultiplyTriangle(ref triRotatedZ, ref triRotatedZX, ref matRotX);
+                    // Calculate light shading
+                    float lightIntensity = CalculateLightIntensity(TriangleOperations.GetNormal(ref triTranslated), lightDirection);
+                    var colorShaded = colorFill.WithBrightness(lightIntensity);
 
-                    // Offset into the screen
-                    triTranslated = triRotatedZX;
-                    TriangleOperations.TranslateZ(ref triTranslated, translationZ);
+                    graphics.DrawTriangle(
+                        (int)triProjected.Points[0].X, (int)triProjected.Points[0].Y,
+                        (int)triProjected.Points[1].X, (int)triProjected.Points[1].Y,
+                        (int)triProjected.Points[2].X, (int)triProjected.Points[2].Y,
+                        colorShaded, true);
 
-                    // Check if triangle is facing towards the camera
-                    if (TriangleOperations.IsFacingCamera(ref triTranslated, ref camera))
-                    {
-                        // Project triangles from 3D --> 2D
-                        MatrixOperations.MatrixMultiplyTriangle(ref triTranslated, ref triProjected, ref projectionMatrix);
-
-                        // Scale into viewspace
-                        TriangleOperations.TranslateX(ref triProjected, 1.0f);
-                        TriangleOperations.TranslateY(ref triProjected, 1.0f);
-                        TriangleOperations.ScaleX(ref triProjected, Width * 0.5f);
-                        TriangleOperations.ScaleY(ref triProjected, Height * 0.5f);
-
-                        // Calculate light shading
-                        float lightIntensity = CalculateLightIntensity(TriangleOperations.GetNormal(ref triTranslated), lightDirection);
-                        var colorShaded = colorFill.WithBrightness(lightIntensity);
-
-                        graphics.DrawTriangle(
-                            (int)triProjected.Points[0].X, (int)triProjected.Points[0].Y,
-                            (int)triProjected.Points[1].X, (int)triProjected.Points[1].Y,
-                            (int)triProjected.Points[2].X, (int)triProjected.Points[2].Y,
-                            colorShaded, true);
-
-                        graphics.DrawTriangle(
-                            (int)triProjected.Points[0].X, (int)triProjected.Points[0].Y,
-                            (int)triProjected.Points[1].X, (int)triProjected.Points[1].Y,
-                            (int)triProjected.Points[2].X, (int)triProjected.Points[2].Y,
-                            color, false);
-                    }
+                    graphics.DrawTriangle(
+                        (int)triProjected.Points[0].X, (int)triProjected.Points[0].Y,
+                        (int)triProjected.Points[1].X, (int)triProjected.Points[1].Y,
+                        (int)triProjected.Points[2].X, (int)triProjected.Points[2].Y,
+                        color, false);
                 }
-                graphics.Show();
             }
-
-            return base.Run();
+            graphics.ShowUnsafe();
         }
-
+    }
 
     float CalculateLightIntensity(Vector3d normal, Vector3d lightDirection)
     {
