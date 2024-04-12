@@ -138,7 +138,6 @@ public class MeadowApp : App<Meadow.Windows>
                         float lightIntensity = CalculateLightIntensity(TriangleOperations.GetNormal(ref triTranslated), lightDirection);
                         var colorShaded = colorFill.WithBrightness(lightIntensity);
 
-
                         graphics.DrawTriangle(
                             (int)triProjected.Points[0].X, (int)triProjected.Points[0].Y,
                             (int)triProjected.Points[1].X, (int)triProjected.Points[1].Y,
